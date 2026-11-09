@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { LiquidButton } from "@/components/ui/liquid-button";
 import StaggerText from "@/components/ui/staggerText";
@@ -124,22 +124,7 @@ export default function Page() {
             </motion.div>
             <span dir="ltr">Mohammad Adeeb</span>
           </div>
-          <div className="relative flex rounded-full border border-white/10 bg-[#11142a] p-1" role="group" aria-label="Language">
-            {LANGS.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => setLang(l.id)}
-                className="relative rounded-full px-3 py-1.5 text-[13px] font-semibold text-white/60 transition-colors data-[on=true]:text-white"
-                data-on={lang === l.id}
-              >
-                {lang === l.id && (
-                  <motion.span layoutId="lang-pill" className="absolute inset-0 rounded-full bg-[#7c5cff]" transition={{ type: "spring", stiffness: 420, damping: 32 }} />
-                )}
-                <span className="relative">{l.label}</span>
-              </button>
-            ))}
-          </div>
+          <LangSwitch lang={lang} onChange={setLang} />
         </motion.header>
 
         {/* Rounded animated gradient frame (transform-only rotation) */}
@@ -298,5 +283,55 @@ function Dot() {
       animate={{ scale: [1, 1.6, 1], opacity: [1, 0.5, 1] }}
       transition={{ duration: 1, repeat: Infinity }}
     />
+  );
+}
+
+/** Segmented language switch: a measured pill slides (spring) under the active option.
+ *  The bar keeps LTR order so it doesn't jump when the page flips to RTL. */
+function LangSwitch({ lang, onChange }: { lang: Lang; onChange: (l: Lang) => void }) {
+  const refs = useRef<Partial<Record<Lang, HTMLButtonElement | null>>>({});
+  const [pill, setPill] = useState({ x: 0, w: 0, ready: false });
+
+  const measure = useCallback(() => {
+    const el = refs.current[lang];
+    if (el) setPill((p) => ({ x: el.offsetLeft, w: el.offsetWidth, ready: p.ready || el.offsetWidth > 0 }));
+  }, [lang]);
+
+  useLayoutEffect(measure, [measure]);
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    document.fonts?.ready.then(measure); // re-measure once web fonts change label widths
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  return (
+    <div dir="ltr" role="radiogroup" aria-label="Language" className="relative flex rounded-full border border-white/10 bg-[#11142a] p-1 shadow-inner">
+      <motion.span
+        aria-hidden="true"
+        className="absolute top-1 bottom-1 left-0 rounded-full bg-gradient-to-r from-[#7c5cff] to-[#5b8cff] shadow-[0_4px_14px_-2px_rgba(124,92,255,.6)]"
+        initial={false}
+        animate={{ x: pill.x, width: pill.w, opacity: pill.ready ? 1 : 0 }}
+        transition={{ type: "spring", stiffness: 380, damping: 30, mass: 0.8 }}
+      />
+      {LANGS.map((l) => {
+        const on = lang === l.id;
+        return (
+          <motion.button
+            key={l.id}
+            ref={(el) => { refs.current[l.id] = el; }}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(l.id)}
+            whileTap={{ scale: 0.92 }}
+            className={`relative z-10 cursor-pointer rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b7bff] ${
+              on ? "text-white" : "text-white/55 hover:bg-white/[.06] hover:text-white"
+            }`}
+          >
+            {l.label}
+          </motion.button>
+        );
+      })}
+    </div>
   );
 }

@@ -202,3 +202,6 @@ select.lead-input option { background: #14172a; }
 }
 @keyframes frame-spin { to { transform: rotate(1turn); } }
 @media (prefers-reduced-motion: reduce) { .lead-frame::before { animation: none; } }
+
+/* Tailwind v4 preflight resets buttons to the default cursor */
+button:not(:disabled), [role="button"], select, label:has(input[type="radio"]) { cursor: pointer; }
