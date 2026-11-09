@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { GlowBorderCard } from "@/components/ui/glow-border-card";
 import { LiquidButton } from "@/components/ui/liquid-button";
 import StaggerText from "@/components/ui/staggerText";
 import { KineticTextLoader } from "@/components/ui/kinetic-text-loader";
@@ -143,19 +142,10 @@ export default function Page() {
           </div>
         </motion.header>
 
-        {/* Vengeance UI animated glow card */}
-        <GlowBorderCard
-          width="100%"
-          aspectRatio="auto"
-          borderRadius="24px"
-          colorPreset="aurora"
-          animationDuration={8}
-          borderWidth="2px"
-          blurAmount="0px"
-          inset="0px"
-          className="glow-card !bg-[#0d1020] !backdrop-blur-none shadow-[0_0_40px_-8px_rgba(124,92,255,.45),0_30px_80px_rgba(0,0,0,.55)]"
-        >
-          <div className="w-full p-3 sm:p-6">
+        {/* Rounded animated gradient frame (transform-only rotation) */}
+        <div className="lead-frame">
+          <div className="lead-frame-inner">
+          <div className="w-full p-5 sm:p-8">
             <AnimatePresence mode="wait">
               {stage === "form" && (
                 <motion.form key={`form-${lang}`} ref={formRef} onSubmit={submit} noValidate {...swap}>
@@ -279,7 +269,8 @@ export default function Page() {
               )}
             </AnimatePresence>
           </div>
-        </GlowBorderCard>
+          </div>
+        </div>
 
         <p className="mt-6 text-center text-xs text-white/40">{t.foot}</p>
       </div>

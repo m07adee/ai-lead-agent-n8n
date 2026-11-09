@@ -181,3 +181,24 @@ select.lead-input option { background: #14172a; }
 @media (prefers-reduced-motion: reduce) {
   .aurora-blob, .glow-conic { animation: none !important; }
 }
+
+/* Animated gradient frame: a rotating conic layer clipped by a rounded wrapper.
+   Only `transform` animates, so it runs on the GPU and corners stay perfectly round. */
+.lead-frame {
+  position: relative; border-radius: 26px; padding: 1.5px; overflow: hidden; isolation: isolate;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.04), 0 20px 60px -20px rgba(124,92,255,.45), 0 30px 80px rgba(0,0,0,.5);
+}
+.lead-frame::before {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: 50%;
+  width: 200vmax; height: 200vmax; margin: -100vmax 0 0 -100vmax;
+  background: conic-gradient(from 0deg,
+    rgba(124,92,255,.0) 0deg, #7c5cff 50deg, #22d3ee 110deg, rgba(34,211,238,0) 170deg,
+    rgba(124,92,255,0) 190deg, #e879f9 250deg, #7c5cff 310deg, rgba(124,92,255,0) 360deg);
+  animation: frame-spin 7s linear infinite; will-change: transform;
+}
+.lead-frame-inner {
+  position: relative; border-radius: 24.5px;
+  background: linear-gradient(180deg, #11142a 0%, #0b0d1c 100%);
+}
+@keyframes frame-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .lead-frame::before { animation: none; } }
