@@ -1,0 +1,31 @@
+{
+	admin off
+}
+:8090 {
+	encode gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+	# Only the lead endpoint is exposed - the n8n editor stays private
+	@lead {
+		path /webhook/lead
+		method POST
+	}
+	handle @lead {
+		request_body {
+			max_size 32KB
+		}
+		reverse_proxy host.docker.internal:5678
+	}
+	handle /webhook/* {
+		respond "Not found" 404
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

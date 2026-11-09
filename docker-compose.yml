@@ -1,0 +1,36 @@
+# One-command setup: n8n + secure form proxy + (optional) public Cloudflare tunnel
+#   docker compose up -d                      -> form at http://localhost:8090, n8n editor at http://localhost:5678
+#   docker compose --profile public up -d     -> also prints a public https://*.trycloudflare.com link
+#                                                (see: docker compose logs tunnel)
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  site:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./site/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./site/index.html:/srv/index.html:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - n8n
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["public"]
+    command: tunnel --no-autoupdate --url http://site:8090
+    depends_on:
+      - site
+
+volumes:
+  n8n_data:

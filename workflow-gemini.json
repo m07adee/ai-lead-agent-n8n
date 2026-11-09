@@ -1,0 +1,424 @@
+{
+  "name": "AI Lead Qualification & Auto-Reply Agent (Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Request a Quote",
+        "formDescription": "Tell us about your project and we'll get back to you right away.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "placeholder": "Jane Smith",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "placeholder": "jane@company.com",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Company",
+              "placeholder": "Acme Inc."
+            },
+            {
+              "fieldLabel": "Budget",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Under $500"
+                  },
+                  {
+                    "option": "$500 - $2,000"
+                  },
+                  {
+                    "option": "$2,000 - $10,000"
+                  },
+                  {
+                    "option": "$10,000+"
+                  },
+                  {
+                    "option": "Not sure yet"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Message",
+              "fieldType": "textarea",
+              "placeholder": "What do you need help with?",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Send Request"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Lead Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "b7d1c3a2-5f4e-4c6b-9a8d-1e2f3a4b5c6d"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=New inbound lead:\nName: {{ $json['Full Name'] }}\nEmail: {{ $json.Email }}\nCompany: {{ $json.Company || 'N/A' }}\nBudget: {{ $json.Budget }}\nMessage: {{ $json.Message }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a senior sales assistant for a software agency that builds AI automations, AI agents, chatbots, web apps and mobile apps.\nAnalyze the inbound lead and return ONLY the structured output.\n- intent: one of [AI Automation, Chatbot/AI Agent, Web Development, Mobile App, Data Scraping, Support, Spam, Other]\n- urgency: low | medium | high (based on wording like 'ASAP', deadlines)\n- fit_score: integer 0-100 for how well the request fits the agency's services and budget\n- summary: one sentence summary of the request\n- key_requirements: short list of concrete requirements\n- reply: a warm, professional, personalized reply email body (max 120 words) in the same language as the lead's message. Thank them by first name, reflect their specific need, propose a short discovery call, and do not promise prices. End the reply with exactly this sign-off on separate lines: 'Best regards,' then 'Mohammad Adeeb' then 'AI Automation & Full-Stack Developer'. Never sign as an assistant, agency or placeholder. If spam, reply with an empty string."
+            }
+          ]
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "AI Lead Analyst",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {
+          "temperature": 0.2,
+          "maxOutputTokens": 1024
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Google Gemini (Free)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        200,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"intent\": { \"type\": \"string\" },\n    \"urgency\": { \"type\": \"string\", \"enum\": [\"low\", \"medium\", \"high\"] },\n    \"fit_score\": { \"type\": \"integer\" },\n    \"summary\": { \"type\": \"string\" },\n    \"key_requirements\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"reply\": { \"type\": \"string\" }\n  },\n  \"required\": [\"intent\", \"urgency\", \"fit_score\", \"summary\", \"key_requirements\", \"reply\"]\n}"
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Structured Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine form data + AI analysis and compute a final lead score\nconst form = $('Lead Form').first().json;\nconst ai = $input.first().json.output;\n\nconst budgetPoints = { 'Under $500': 5, '$500 - $2,000': 15, '$2,000 - $10,000': 25, '$10,000+': 30, 'Not sure yet': 10 };\nconst urgencyPoints = { low: 0, medium: 5, high: 10 };\n\nlet score = Math.round((ai.fit_score || 0) * 0.6) + (budgetPoints[form.Budget] || 0) + (urgencyPoints[ai.urgency] || 0);\nif (ai.intent === 'Spam') score = 0;\nscore = Math.max(0, Math.min(100, score));\n\nconst tier = ai.intent === 'Spam' ? 'Spam' : score >= 70 ? 'Hot' : score >= 40 ? 'Warm' : 'Cold';\nconst firstName = String(form['Full Name'] || '').trim().split(' ')[0] || 'there';\n\nreturn [{\n  json: {\n    submitted_at: form.submittedAt || new Date().toISOString(),\n    name: form['Full Name'],\n    first_name: firstName,\n    email: form.Email,\n    company: form.Company || '',\n    budget: form.Budget,\n    message: form.Message,\n    intent: ai.intent,\n    urgency: ai.urgency,\n    lead_score: score,\n    tier,\n    summary: ai.summary,\n    key_requirements: (ai.key_requirements || []).join('; '),\n    ai_reply: ai.reply\n  }\n}];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Score & Enrich Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "Hot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Hot"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.tier }}",
+                    "rightValue": "Spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Spam"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Warm / Cold"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Route by Lead Tier",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "next_action",
+              "value": "=🔥 HOT LEAD — notify sales instantly & book a call within 1 hour",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "sales_alert",
+              "value": "=🔥 Hot lead ({{ $json.lead_score }}/100): {{ $json.name }} ({{ $json.company }}) — {{ $json.intent }} — {{ $json.budget }}\n{{ $json.summary }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Hot: Sales Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1",
+              "name": "next_action",
+              "value": "=🗑️ Marked as spam — no reply sent",
+              "type": "string"
+            },
+            {
+              "id": "d2",
+              "name": "ai_reply",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Spam: Discard",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1",
+              "name": "next_action",
+              "value": "={{ $json.tier === 'Warm' ? '🌤️ WARM — send auto-reply + follow up in 24h' : '❄️ COLD — send auto-reply + add to nurture list' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "Warm/Cold: Nurture",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "=Thanks, {{ $json.first_name }}! ✅",
+        "completionMessage": "={{ $json.tier === 'Spam' ? 'Your message has been received.' : $json.ai_reply }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000010",
+      "name": "Show Personalized Reply",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ],
+      "webhookId": "c8e2d4b3-6a5f-4d7c-8b9e-2f3a4b5c6d7e"
+    }
+  ],
+  "connections": {
+    "Lead Form": {
+      "main": [
+        [
+          {
+            "node": "AI Lead Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini (Free)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Lead Analyst",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Lead Analyst",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Lead Analyst": {
+      "main": [
+        [
+          {
+            "node": "Score & Enrich Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score & Enrich Lead": {
+      "main": [
+        [
+          {
+            "node": "Route by Lead Tier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Lead Tier": {
+      "main": [
+        [
+          {
+            "node": "Hot: Sales Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Spam: Discard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Warm/Cold: Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hot: Sales Alert": {
+      "main": [
+        [
+          {
+            "node": "Show Personalized Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spam: Discard": {
+      "main": [
+        [
+          {
+            "node": "Show Personalized Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Warm/Cold: Nurture": {
+      "main": [
+        [
+          {
+            "node": "Show Personalized Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "id": "q5Ptqi553eKfaler"
+}
