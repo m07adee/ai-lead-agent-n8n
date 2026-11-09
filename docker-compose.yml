@@ -18,7 +18,7 @@ services:
       - "8090:8090"
     volumes:
       - ./site/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./site/index.html:/srv/index.html:ro
+      - ./web/out:/srv:ro   # build first: cd web && npm install && npm run build
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

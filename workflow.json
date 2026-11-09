@@ -28,7 +28,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "// Clean + validate the public form submission\nconst b = $json.body || {};\nconst s = (v, n) => String(v ?? '').trim().slice(0, n);\nconst lang = ['en', 'ar', 'tr'].includes(b.lang) ? b.lang : 'en';\nconst lead = {\n  name: s(b.name, 80),\n  email: s(b.email, 120).toLowerCase(),\n  phone: s(b.phone, 25),\n  company: s(b.company, 100),\n  budget: s(b.budget, 40),\n  message: s(b.message, 3000),\n  lang,\n  language: { en: 'English', ar: 'Arabic', tr: 'Turkish' }[lang],\n  submitted_at: new Date().toISOString(),\n};\nconst valid = !s(b.website, 200)                       // honeypot must be empty\n  && lead.name.length > 1\n  && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(lead.email)\n  && /^\\+?[\\d\\s\\-()]{7,20}$/.test(lead.phone)\n  && lead.message.length > 3;\nreturn [{ json: { ...lead, valid } }];"
+        "jsCode": "// Clean + validate the public form submission\nconst b = $json.body || {};\nconst s = (v, n) => String(v ?? '').trim().slice(0, n);\nconst lang = ['en', 'ar', 'tr'].includes(b.lang) ? b.lang : 'en';\nconst lead = {\n  name: s(b.name, 80),\n  email: s(b.email, 120).toLowerCase(),\n  phone: s(b.phone, 25),\n  company: s(b.company, 100),\n  project_type: s(b.type, 40) || 'Not specified',\n  budget: s(b.budget, 40),\n  message: s(b.message, 3000),\n  lang,\n  language: { en: 'English', ar: 'Arabic', tr: 'Turkish' }[lang],\n  submitted_at: new Date().toISOString(),\n};\nconst valid = !s(b.website, 200)                       // honeypot must be empty\n  && lead.name.length > 1\n  && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(lead.email)\n  && /^\\+?[\\d\\s\\-()]{7,20}$/.test(lead.phone)\n  && lead.message.length > 3;\nreturn [{ json: { ...lead, valid } }];"
       }
     },
     {
@@ -93,7 +93,7 @@
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: true, first_name: $json.first_name, reply: $json.tier === 'Spam' ? '' : $json.ai_reply }) }}",
+        "responseBody": "={{ JSON.stringify({ ok: true, first_name: $json.first_name, reply: ($json.tier === 'Spam' || !$json.ai_reply) ? {en: 'Thanks for reaching out! Your request has been received and I will get back to you shortly.\\n\\nBest regards,\\nMohammad Adeeb', ar: 'شكراً لتواصلك! وصلني طلبك وسأعود إليك قريباً.\\n\\nمع أطيب التحيات،\\nمحمد أديب', tr: 'İletişime geçtiğiniz için teşekkürler! Talebiniz alındı, en kısa sürede dönüş yapacağım.\\n\\nSaygılarımla,\\nMohammad Adeeb'}[$json.lang] : $json.ai_reply }) }}",
         "options": {}
       }
     },
@@ -103,7 +103,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1520,
+        1760,
         300
       ],
       "parameters": {
@@ -117,7 +117,7 @@
           "conditions": [
             {
               "id": "s1",
-              "leftValue": "={{ $json.tier }}",
+              "leftValue": "={{ $('Respond to Visitor').item.json.tier }}",
               "rightValue": "Spam",
               "operator": {
                 "type": "string",
@@ -136,15 +136,15 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1760,
-        200
+        1520,
+        300
       ],
       "parameters": {
         "fromEmail": "Lead Agent <you@example.com>",
         "toEmail": "you@example.com",
-        "subject": "={{ $json.tier === 'Hot' ? '🔥 HOT' : $json.tier }} lead ({{ $json.lead_score }}/100): {{ $json.name }} — {{ $json.intent }}",
+        "subject": "={{ $json.tier === 'Spam' ? '⚠️ Possible spam' : $json.tier === 'Hot' ? '🔥 HOT lead' : $json.tier + ' lead' }} ({{ $json.lead_score }}/100): {{ $json.name }} — {{ $json.intent }}",
         "emailFormat": "html",
-        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto\"><div style=\"background:{{ $json.tier === 'Hot' ? '#dc2626' : $json.tier === 'Warm' ? '#f59e0b' : '#6b7280' }};color:#fff;padding:18px 20px;border-radius:10px 10px 0 0\"><div style=\"font-size:13px;opacity:.9\">New lead · {{ $json.submitted_at }}</div><div style=\"font-size:22px;font-weight:bold\">{{ $json.tier === 'Hot' ? '🔥 HOT' : $json.tier }} lead — {{ $json.lead_score }}/100</div><div style=\"font-size:13px;margin-top:4px\">{{ $json.next_action }}</div></div><table style=\"width:100%;border:1px solid #e5e7eb;border-top:0;border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Name</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.name }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Email</td><td style=\"padding:8px 12px;color:#111827\"><a href=\"mailto:{{ $json.h.email }}\">{{ $json.h.email }}</a></td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Phone</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.phone }} · <a href=\"https://wa.me/{{ $json.whatsapp }}\">WhatsApp</a></td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Company</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.company }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Budget</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.budget }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Language</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.language }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Intent</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.intent }} · urgency: {{ $json.urgency }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Summary</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.summary }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Requirements</td><td style=\"padding:8px 12px;color:#111827\"><ul style=\"margin:0;padding-left:18px\">{{ $json.h.reqs }}</ul></td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Message</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.message }}</td></tr></table><h3 style=\"margin:22px 0 8px\">AI reply already sent to the client</h3><div style=\"background:#f3f4f6;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.6\">{{ $json.h.reply }}</div><p style=\"margin-top:20px\"><a href=\"mailto:{{ $json.h.email }}\" style=\"background:#7c5cff;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Reply by email</a> &nbsp;<a href=\"https://wa.me/{{ $json.whatsapp }}\" style=\"background:#16a34a;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Message on WhatsApp</a></p></div>",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:640px;margin:auto\"><div style=\"background:{{ $json.tier === 'Hot' ? '#dc2626' : $json.tier === 'Warm' ? '#f59e0b' : '#6b7280' }};color:#fff;padding:18px 20px;border-radius:10px 10px 0 0\"><div style=\"font-size:13px;opacity:.9\">New lead · {{ $json.submitted_at }}</div><div style=\"font-size:22px;font-weight:bold\">{{ $json.tier === 'Spam' ? '⚠️ Possible spam' : $json.tier === 'Hot' ? '🔥 HOT lead' : $json.tier + ' lead' }} — {{ $json.lead_score }}/100</div><div style=\"font-size:13px;margin-top:4px\">{{ $json.next_action }}</div></div><table style=\"width:100%;border:1px solid #e5e7eb;border-top:0;border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Name</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.name }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Email</td><td style=\"padding:8px 12px;color:#111827\"><a href=\"mailto:{{ $json.h.email }}\">{{ $json.h.email }}</a></td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Phone</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.phone }} · <a href=\"https://wa.me/{{ $json.whatsapp }}\">WhatsApp</a></td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Company</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.company }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Project type</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.ptype }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Budget</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.budget }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Language</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.language }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Intent</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.intent }} · urgency: {{ $json.urgency }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Summary</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.summary }}</td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Requirements</td><td style=\"padding:8px 12px;color:#111827\"><ul style=\"margin:0;padding-left:18px\">{{ $json.h.reqs }}</ul></td></tr><tr><td style=\"padding:8px 12px;color:#6b7280;width:130px;vertical-align:top\">Message</td><td style=\"padding:8px 12px;color:#111827\">{{ $json.h.message }}</td></tr></table><h3 style=\"margin:22px 0 8px\">{{ $json.tier === 'Spam' ? 'No email sent to this sender (flagged as spam — check it yourself)' : 'AI reply already sent to the client' }}</h3><div style=\"background:#f3f4f6;border-radius:10px;padding:14px 16px;font-size:14px;line-height:1.6\">{{ $json.h.reply || '—' }}</div><p style=\"margin-top:20px\"><a href=\"mailto:{{ $json.h.email }}\" style=\"background:#7c5cff;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Reply by email</a> &nbsp;<a href=\"https://wa.me/{{ $json.whatsapp }}\" style=\"background:#16a34a;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none\">Message on WhatsApp</a></p></div>",
         "options": {
           "appendAttribution": false,
           "replyTo": "={{ $json.email }}"
@@ -169,10 +169,10 @@
       ],
       "parameters": {
         "fromEmail": "Mohammad Adeeb <you@example.com>",
-        "toEmail": "={{ $('Not Spam?').item.json.email }}",
-        "subject": "={{ {en: 'Re: your project request — Mohammad Adeeb', ar: 'بخصوص طلب مشروعك — محمد أديب', tr: 'Proje talebiniz hakkında — Mohammad Adeeb'}[$('Not Spam?').item.json.lang] }}",
+        "toEmail": "={{ $('Respond to Visitor').item.json.email }}",
+        "subject": "={{ {en: 'Re: your project request — Mohammad Adeeb', ar: 'بخصوص طلب مشروعك — محمد أديب', tr: 'Proje talebiniz hakkında — Mohammad Adeeb'}[$('Respond to Visitor').item.json.lang] }}",
         "emailFormat": "text",
-        "text": "={{ $('Not Spam?').item.json.ai_reply }}",
+        "text": "={{ $('Respond to Visitor').item.json.ai_reply }}",
         "options": {
           "appendAttribution": false,
           "replyTo": "you@example.com"
@@ -189,12 +189,12 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=New inbound lead:\nName: {{ $json.name }}\nEmail: {{ $json.email }}\nPhone: {{ $json.phone }}\nCompany: {{ $json.company || 'N/A' }}\nBudget: {{ $json.budget }}\nPreferred reply language: {{ $json.language }}\nMessage: {{ $json.message }}",
+        "text": "=New inbound lead:\nName: {{ $json.name }}\nEmail: {{ $json.email }}\nPhone: {{ $json.phone }}\nCompany: {{ $json.company || 'N/A' }}\nProject type: {{ $json.project_type }}\nBudget: {{ $json.budget }}\nPreferred reply language: {{ $json.language }}\nMessage: {{ $json.message }}",
         "hasOutputParser": true,
         "messages": {
           "messageValues": [
             {
-              "message": "You are a senior sales assistant for Mohammad Adeeb, an independent developer who builds AI automations, AI agents, chatbots, web apps and mobile apps.\nAnalyze the inbound lead and return ONLY the structured output.\n- intent: one of [AI Automation, Chatbot/AI Agent, Web Development, Mobile App, Data Scraping, Support, Spam, Other]\n- urgency: low | medium | high (based on wording like 'ASAP' or deadlines)\n- fit_score: integer 0-100 for how well the request fits these services and its budget\n- summary: one sentence summary of the request, always in English\n- key_requirements: short list of concrete requirements, always in English\n- reply: a warm, professional, personalized reply (max 120 words) written entirely in the lead's preferred reply language (English, Arabic or Turkish). Greet them by first name, reflect their specific need, propose a short discovery call, and never quote prices. Finish with a sign-off line in the reply language (for example 'Best regards,' / 'مع أطيب التحيات،' / 'Saygılarımla,'), then 'Mohammad Adeeb', then 'AI Automation & Full-Stack Developer', each on its own line. Never sign as an assistant, agency or placeholder. If the lead is spam, reply with an empty string."
+              "message": "You are a senior sales assistant for Mohammad Adeeb, an independent developer who builds websites, web apps, mobile apps, custom software, AI automations, AI agents and chatbots.\nAnalyze the inbound lead and return ONLY the structured output.\n- intent: one of [Website, Web App, Mobile App, Custom Software, AI Automation, Chatbot/AI Agent, Data Scraping, Support, Other, Spam]\n- urgency: low | medium | high (based on wording like 'ASAP' or deadlines)\n- fit_score: integer 0-100 for how well the request fits these services and its budget\n- summary: one sentence summary of the request, always in English\n- key_requirements: short list of concrete requirements, always in English (empty list if none)\n- reply: a warm, professional, personalized reply (max 120 words) written entirely in the lead's preferred reply language (English, Arabic or Turkish). Greet them by first name, reflect their specific need, propose a short discovery call, and never quote prices. If the message is short, vague or looks like a test, still reply politely and ask 2-3 short questions about what they want to build. Finish with a sign-off line in the reply language (for example 'Best regards,' / 'مع أطيب التحيات،' / 'Saygılarımla,'), then 'Mohammad Adeeb', then 'AI Automation & Full-Stack Developer', each on its own line. Never sign as an assistant, agency or placeholder.\n\nSpam rules: ANY request to build, fix or improve a website, app, program, system, store, bot or automation is a real lead, even if short, informal, misspelled or low budget. Use intent 'Spam' ONLY for obvious junk: advertising or selling services to us (SEO, backlinks, marketing, crypto, loans), phishing or suspicious links, adult content, or random gibberish. Short or vague messages are 'Other', never 'Spam'. For Spam, reply with an empty string."
             }
           ]
         }
@@ -250,7 +250,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Combine lead data + AI analysis into a final score and tier\nconst lead = $('Validate & Normalize').first().json;\nconst ai = $input.first().json.output;\n\nconst budgetPoints = { 'Under $500': 5, '$500 - $2,000': 15, '$2,000 - $10,000': 25, '$10,000+': 30, 'Not sure yet': 10 };\nconst urgencyPoints = { low: 0, medium: 5, high: 10 };\n\nlet score = Math.round((ai.fit_score || 0) * 0.6) + (budgetPoints[lead.budget] || 0) + (urgencyPoints[ai.urgency] || 0);\nif (ai.intent === 'Spam') score = 0;\nscore = Math.max(0, Math.min(100, score));\nconst tier = ai.intent === 'Spam' ? 'Spam' : score >= 70 ? 'Hot' : score >= 40 ? 'Warm' : 'Cold';\n\nconst esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst reqs = ai.key_requirements || [];\nreturn [{\n  json: {\n    ...lead,\n    first_name: lead.name.split(' ')[0] || 'there',\n    intent: ai.intent,\n    urgency: ai.urgency,\n    lead_score: score,\n    tier,\n    summary: ai.summary,\n    key_requirements: reqs.join('; '),\n    ai_reply: ai.reply,\n    whatsapp: lead.phone.replace(/\\D/g, ''),\n    h: {  // HTML-escaped copies for the notification email\n      name: esc(lead.name), email: esc(lead.email), phone: esc(lead.phone), company: esc(lead.company || '—'),\n      budget: esc(lead.budget), message: esc(lead.message).replace(/\\n/g, '<br>'), summary: esc(ai.summary),\n      reqs: reqs.map(r => '<li>' + esc(r) + '</li>').join(''), reply: esc(ai.reply).replace(/\\n/g, '<br>'),\n    },\n  },\n}];"
+        "jsCode": "// Combine lead data + AI analysis into a final score and tier\nconst lead = $('Validate & Normalize').first().json;\nconst ai = $input.first().json.output;\n\nconst budgetPoints = { 'Under $500': 5, '$500 - $2,000': 15, '$2,000 - $10,000': 25, '$10,000+': 30, 'Not sure yet': 10 };\nconst urgencyPoints = { low: 0, medium: 5, high: 10 };\n\nlet score = Math.round((ai.fit_score || 0) * 0.6) + (budgetPoints[lead.budget] || 0) + (urgencyPoints[ai.urgency] || 0);\nif (ai.intent === 'Spam') score = 0;\nscore = Math.max(0, Math.min(100, score));\nconst tier = ai.intent === 'Spam' ? 'Spam' : score >= 70 ? 'Hot' : score >= 40 ? 'Warm' : 'Cold';\n\nconst esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst reqs = ai.key_requirements || [];\nreturn [{\n  json: {\n    ...lead,\n    first_name: lead.name.split(' ')[0] || 'there',\n    intent: ai.intent,\n    urgency: ai.urgency,\n    lead_score: score,\n    tier,\n    summary: ai.summary,\n    key_requirements: reqs.join('; '),\n    ai_reply: ai.reply,\n    whatsapp: lead.phone.replace(/\\D/g, ''),\n    h: {  // HTML-escaped copies for the notification email\n      name: esc(lead.name), email: esc(lead.email), phone: esc(lead.phone), company: esc(lead.company || '—'),\n      budget: esc(lead.budget), ptype: esc(lead.project_type), message: esc(lead.message).replace(/\\n/g, '<br>'), summary: esc(ai.summary),\n      reqs: reqs.map(r => '<li>' + esc(r) + '</li>').join(''), reply: esc(ai.reply).replace(/\\n/g, '<br>'),\n    },\n  },\n}];"
       },
       "id": "a1000000-0000-4000-8000-000000000005",
       "name": "Score & Enrich Lead",
@@ -362,13 +362,7 @@
             {
               "id": "d1",
               "name": "next_action",
-              "value": "=🗑️ Marked as spam — no reply sent",
-              "type": "string"
-            },
-            {
-              "id": "d2",
-              "name": "ai_reply",
-              "value": "",
+              "value": "Flagged as possible spam — review manually, no auto-reply email was sent",
               "type": "string"
             }
           ]
@@ -557,7 +551,7 @@
       "main": [
         [
           {
-            "node": "Not Spam?",
+            "node": "Email Me: New Lead",
             "type": "main",
             "index": 0
           }
@@ -568,7 +562,7 @@
       "main": [
         [
           {
-            "node": "Email Me: New Lead",
+            "node": "Email Client: AI Reply",
             "type": "main",
             "index": 0
           }
@@ -579,7 +573,7 @@
       "main": [
         [
           {
-            "node": "Email Client: AI Reply",
+            "node": "Not Spam?",
             "type": "main",
             "index": 0
           }
