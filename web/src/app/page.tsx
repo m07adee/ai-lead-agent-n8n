@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
-import { AuroraHero } from "@/components/ui/aurora-hero";
 import { GlowBorderCard } from "@/components/ui/glow-border-card";
 import { LiquidButton } from "@/components/ui/liquid-button";
 import StaggerText from "@/components/ui/staggerText";
@@ -19,8 +18,9 @@ const BUDGETS = ["Under $500", "$500 - $2,000", "$2,000 - $10,000", "$10,000+", 
 
 const list: Variants = { hidden: {}, show: { transition: { staggerChildren: 0.035, delayChildren: 0.05 } } };
 const item: Variants = {
-  hidden: { opacity: 0, y: 18, filter: "blur(6px)" },
-  show: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+  // transform + opacity only: GPU-composited, no per-frame repaint
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
 };
 const swap = {
   initial: { opacity: 0, y: 24, scale: 0.98 },
@@ -100,11 +100,12 @@ export default function Page() {
       className="relative min-h-screen w-full overflow-hidden px-4 py-8 sm:py-12"
       style={{ fontFamily: isAr ? "var(--font-cairo), sans-serif" : "var(--font-inter), sans-serif" }}
     >
-      {/* Vengeance UI aurora background */}
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-70">
-        <AuroraHero title="" className="!h-full !min-h-full" />
+      {/* Lightweight aurora: pre-blurred radial gradients moved with transform only */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div className="aurora-blob aurora-a" />
+        <div className="aurora-blob aurora-b" />
+        <div className="aurora-blob aurora-c" />
       </div>
-      <div className="pointer-events-none fixed inset-0 z-0 bg-gradient-to-b from-transparent via-[#05060d]/60 to-[#05060d]" />
 
       <div className="relative z-10 mx-auto w-full max-w-[640px]">
         {/* top bar */}
@@ -124,7 +125,7 @@ export default function Page() {
             </motion.div>
             <span dir="ltr">Mohammad Adeeb</span>
           </div>
-          <div className="relative flex rounded-full border border-white/10 bg-white/5 p-1 backdrop-blur" role="group" aria-label="Language">
+          <div className="relative flex rounded-full border border-white/10 bg-[#11142a] p-1" role="group" aria-label="Language">
             {LANGS.map((l) => (
               <button
                 key={l.id}
@@ -148,11 +149,11 @@ export default function Page() {
           aspectRatio="auto"
           borderRadius="24px"
           colorPreset="aurora"
-          animationDuration={6}
-          borderWidth="0.6em"
-          blurAmount="1.4em"
-          inset="-0.4em"
-          className="!bg-[#0d1020]/80 shadow-[0_30px_80px_rgba(0,0,0,.55)]"
+          animationDuration={8}
+          borderWidth="2px"
+          blurAmount="0px"
+          inset="0px"
+          className="glow-card !bg-[#0d1020] !backdrop-blur-none shadow-[0_0_40px_-8px_rgba(124,92,255,.45),0_30px_80px_rgba(0,0,0,.55)]"
         >
           <div className="w-full p-3 sm:p-6">
             <AnimatePresence mode="wait">
